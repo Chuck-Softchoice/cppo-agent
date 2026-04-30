@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta property="og:title" content="AWS Marketplace CPPO Availability Checker">
+<meta property="og:description" content="Instantly check if a software vendor supports channel partner private offers (CPPOs) on AWS Marketplace.">
+<meta property="og:image" content="https://chuck-softchoice.github.io/cppo-agent/thumbnail.png">
+<meta property="og:url" content="https://chuck-softchoice.github.io/cppo-agent/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://chuck-softchoice.github.io/cppo-agent/thumbnail.png">
+<title>AWS Marketplace CPPO Availability Agent</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: #080b10;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    color: #e8eaf0;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,153,0,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,153,0,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+
+  .header {
+    padding: 1.5rem 0 1.25rem;
+    border-bottom: 1px solid rgba(255,153,0,0.15);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-shrink: 0;
+  }
+
+  .logo-mark {
+    width: 40px;
+    height: 40px;
+    background: #FF9900;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .logo-mark svg { width: 22px; height: 22px; fill: #fff; }
+
+  .header-text { flex: 1; }
+  .header-title { font-size: 15px; font-weight: 600; color: #e8eaf0; letter-spacing: -0.01em; }
+  .header-sub { font-size: 11.5px; color: #8a919e; margin-top: 2px; font-family: 'SF Mono', Consolas, Monaco, monospace; }
+
+  .status-pill {
+    font-size: 10px;
+    font-family: 'SF Mono', Consolas, Monaco, monospace;
+    font-weight: 500;
+    color: #00d4a0;
+    background: rgba(0,212,160,0.07);
+    border: 1px solid rgba(0,212,160,0.2);
+    border-radius: 99px;
+    padding: 3px 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  .chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,153,0,0.15) transparent;
+  }
+
+  .chat::-webkit-scrollbar { width: 4px; }
+  .chat::-webkit-scrollbar-track { background: transparent; }
+  .chat::-webkit-scrollbar-thumb { background: rgba(255,153,0,0.15); border-radius: 4px; }
+
+  .msg { display: flex; flex-direction: column; gap: 4px; animation: fadeUp 0.2s ease; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .msg-label {
+    font-size: 10px;
+    font-family: 'SF Mono', Consolas, Monaco, monospace;
+    color: #4a5260;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0 2px;
+  }
+
+  .msg.user { align-items: flex-end; }
+  .msg.user .msg-label { color: rgba(255,153,0,0.4); }
+
+  .bubble {
+    padding: 11px 15px;
+    border-radius: 2px 12px 12px 12px;
+    font-size: 13.5px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    max-width: 88%;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    color: #e8eaf0;
+  }
+
+  .msg.user .bubble {
+    border-radius: 12px 2px 12px 12px;
+    background: rgba(255,153,0,0.08);
+    border-color: rgba(255,153,0,0.25);
+    color: #FF9900;
+    max-width: 75%;
+  }
+
+  .quick-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-bottom: 10px;
+    flex-shrink: 0;
+  }
+
+  .quick-btn {
+    font-size: 12px;
+    font-family: 'SF Mono', Consolas, Monaco, monospace;
+    padding: 5px 13px;
+    border: 1px solid rgba(255,153,0,0.35);
+    background: transparent;
+    color: #FF9900;
+    border-radius: 99px;
+    cursor: pointer;
+    transition: background 0.15s;
+    letter-spacing: 0.02em;
+  }
+  .quick-btn:hover { background: rgba(255,153,0,0.08); }
+
+  .input-area {
+    padding: 1rem 0 1.25rem;
+    border-top: 1px solid rgba(255,153,0,0.15);
+    flex-shrink: 0;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    background: #161b24;
+    border: 1px solid rgba(255,153,0,0.15);
+    border-radius: 10px;
+    padding: 4px 4px 4px 14px;
+    transition: border-color 0.2s;
+  }
+  .input-row:focus-within { border-color: rgba(255,153,0,0.35); }
+
+  .input-row input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 13.5px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    color: #e8eaf0;
+    padding: 7px 0;
+  }
+  .input-row input::placeholder { color: #4a5260; }
+
+  .send-btn {
+    background: #FF9900;
+    border: none;
+    border-radius: 7px;
+    width: 36px;
+    height: 36px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: opacity 0.15s;
+  }
+  .send-btn:hover { opacity: 0.85; }
+  .send-btn:active { opacity: 0.7; }
+  .send-btn svg { width: 16px; height: 16px; fill: #fff; }
+
+  .footer-note {
+    text-align: center;
+    font-size: 10.5px;
+    font-family: 'SF Mono', Consolas, Monaco, monospace;
+    color: #4a5260;
+    margin-top: 8px;
+    letter-spacing: 0.02em;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="logo-mark">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13.527 9.052c0 .898.094 1.625.281 2.183.187.558.469.855.844.855.484 0 .875-.234 1.172-.703.297-.469.445-1.148.445-2.036 0-.899-.144-1.574-.433-2.026-.289-.451-.677-.677-1.164-.677-.375 0-.66.219-.856.657-.195.437-.293 1.097-.293 1.98zm6.761 0c0 1.453-.402 2.617-1.207 3.492-.805.875-1.875 1.312-3.21 1.312-1.298 0-2.337-.437-3.118-1.312-.781-.875-1.172-2.031-1.172-3.469 0-1.453.397-2.617 1.19-3.492.793-.875 1.856-1.312 3.19-1.312 1.297 0 2.336.437 3.118 1.312.781.875 1.172 2.024 1.172 3.446zm-14.437 3.68c-.344 0-.61-.094-.797-.281-.187-.188-.281-.454-.281-.797V5.727c0-.344.094-.61.281-.797.187-.188.453-.281.797-.281h2.133c.344 0 .61.093.797.28.187.188.281.454.281.798v3.773c0 .344-.094.61-.281.797-.187.188-.453.281-.797.281H5.85zm1.418-6.258H5.414v5.437h1.86V6.474zm10.125 9.598a.64.64 0 0 1-.117.367.643.643 0 0 1-.328.234 17.656 17.656 0 0 1-2.016.539 10.668 10.668 0 0 1-2.11.21c-1.812 0-3.253-.503-4.323-1.51-1.07-1.007-1.605-2.378-1.605-4.113 0-1.703.539-3.067 1.617-4.09 1.078-1.024 2.507-1.536 4.287-1.536.656 0 1.312.075 1.969.226a9.344 9.344 0 0 1 1.852.656.64.64 0 0 1 .328.235.641.641 0 0 1 .117.363v1.289c0 .203-.074.375-.222.516a.72.72 0 0 1-.516.21.655.655 0 0 1-.27-.054 8.25 8.25 0 0 0-1.511-.574 5.848 5.848 0 0 0-1.605-.223c-.976 0-1.75.32-2.32.961-.57.641-.855 1.528-.855 2.661 0 1.14.285 2.03.855 2.672.57.64 1.348.961 2.332.961.547 0 1.066-.066 1.559-.199a8.08 8.08 0 0 0 1.43-.574.656.656 0 0 1 .27-.054c.203 0 .375.07.515.21.14.141.211.313.211.517v1.207z"/></svg>
+    </div>
+    <div class="header-text">
+      <div class="header-title">AWS Marketplace CPPO Availability Agent</div>
+      <div class="header-sub">softchoice · presales · aws-marketplace</div>
+    </div>
+    <div class="status-pill">● Live</div>
+  </div>
+
+  <div class="chat" id="chat"></div>
+  <div class="quick-btns" id="quickBtns"></div>
+
+  <div class="input-area">
+    <div class="input-row">
+      <input type="text" id="userInput" placeholder="Enter a vendor name..." autocomplete="off" />
+      <button class="send-btn" id="sendBtn">
+        <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+      </button>
+    </div>
+    <div class="footer-note">Checks against the CPPO vendor list · Last updated Aug 2024 · 762 ISVs</div>
+  </div>
+</div>
+
+<script>
+const PDF_VENDORS = ["247 Commerce Limited","6pillars","A Cloud Guru, A Pluralsight Company","A10 Networks","Ably Realtime","Accern","AccuKnox","Acqueon","Acquia","Acsense - IAM Resilience","Actwill Tech Co., Ltd.","Ada","Adaptive Automation Technologies","Add Value Machine","ADEO Imaging","Adfinis AG","AI21 Labs (Bedrock)","airSlate","Aiven","Akridata, Inc.","Alation","Alcide","Alert Logic","Alkira, Inc.","AllCloud","Amplication","Amplitude Analytics","anm","Anodot","Anomali","Anti-Pattern Inc.","Apiiro","AppDynamics","Appen (fka Figure Eight)","Appgate","Appgate Federal","Appian","Applied Insight LLC","Appranix","AppRobotic","AppsFlyer LTD","Apptio","AppViewX","Aqua Security Software Inc.","ArangoDB","Archera","Arctic Wolf","Armis","Armor","ArmorCode Inc","Arrow Electronics","Asana","Assurance","AssuranceLab","Astrix Security","Astronomer","Atlassian","Auth0","AuthTeam","AutoHPC","Automation Anywhere, Inc.","Automox","AutoScalr","Avi Networks","Aviatrix Systems, Inc.","AVT Technology Solutions (TD Synnex)","AWS SAP RISE EDP Retirement","Axiom","Axonius Federal Systems","Axonius Inc.","Ayla Networks, Inc","Azul","Babel","Bansir LLC","Barracuda Networks","Basepair","Bespin Global","BeyondTrust Corporation","BigID","BigPanda","binbash","Bitglass, Inc.","BitSight","Bizzdesign","BJSS Limited","BlackBerry","Blancco Technology","Blink Ops","Blue Cycle LLC","BMC Software Distribution B.V.","BMC Software, Inc.","Boomi","Bosch Software and Digital Solutions","Brainboard","Branch Metrics","Braze","Bright Data","Bright Security","Brightcove Inc.","Britive","Bugcrowd","Buurst","Bytebase","C4c7us","Cado Security","Calabrio","Caldron AI","callstats.io","Canva","Carahsoft Technology Corp","CardinalHQ","CAST","CAST AI","CAST Software","castLabs","Census","Center for Internet Security","Centrify","Cequence Security","Cevo","Chainguard","Check Point Software Technologies","Checkmarx","China Unicom Americas","CircleCI","CirrusWave Inc.","Cisco Systems, Inc.","Citrix","Claroty","CleverTap","Cloud Conformity Inc","Cloud Software Group","Cloud Storage Security","Cloud Up","Cloud8 FINOPS and Workflows","Cloudamize","Cloudanix","CloudBees","CloudBlue","CloudBlue LLC","CloudBolt","CloudCheckr, part of Spot by NetApp","Cloudcraft","CloudDog","CloudEndure, an AWS company","cloudEQ","Cloudflare","CloudHealth by VMware","Cloudscaler","CloudSmart","CloudSploit","Cloudticity","Cloudverse FinOps Platform","CloudWave Customer Experience Experts","Cloudwick","CloudZero","Clumio Inc.","Coalesce","Coalesce Solutions","Code42","CodeBit Programming Solutions","Cohere","Cohesity, Inc.","Collibra","Comet ML","commercetools","Commvault","Comunet","Confluent","Conga","ConnectPath CX","Constructor","Contacx","Contentful GmbH","Continent 8 Technologies","Contrast Security","Coralogix","CoreStack","Cortelco Systems Puerto Rico Inc","Cortex","Coursera","Creatio","Cribl","CrisisGo","CrowdStrike","CTRL365","Cube","CX Intelligence by eMite","Cyber Security Cloud Inc.","CyberArk","CyberGRX","CyberMDX","Cycloid Engineering Platform","CyCognito","Cyera","CyGlass, A WatchGuard Brand","D2iQ","Dagster Labs","DailiTech","Darktrace","Dash Solutions","DataArt","Databricks Dev","Databricks, Inc.","Datacoral","Datadobi","Datadog","Datafold","Dataiku","DataMasque","Datamellon","DataRobot","DataStax, Inc.","DataSunrise Database and Data Security","Datavail","Datawiza","Dazz","DBlandIT","dbt Labs","Decube Data Pte Ltd","Deepgram","Deepwatch","Delinea","Dell Technologies","Delphix Corp.","Denodo Technologies Inc.","Densify","Device42","Devo","Devtron Inc","Dextr Powered by CloudHesive","DFX5","D-ID","Dig Security","Digital Guardian Data Loss Prevention","Digital.ai","DigitalRoute","DLT, a TD SYNNEX Company","DNAnexus","DNX Solutions","Docker, Inc.","DoControl","Domino Data Lab","Domo","DoubleCloud","DPM (Thailand) Co., LTD.","Dragos","Drata","Dremio","Droplet Computing","Druva","D-Wave Commercial Inc.","Dynatrace","ecosystem.Ai","EDB","Edgenexus","EDT Partners","Elastic","Element 84","Elm Computing","EMAM, Inc","EngageLab","Eppo","Ermetic","Estuary","EverSQL: Your Database, Just Faster","Expel","ExtraHop","F5, Inc.","Fastah","Fastly","Federated Wireless","FileCloud","Fingerprint","Finogeeks","Fireblocks","Firefly","FireMon","First Fire Consulting","Fivetran","FlashGrid","Flecha Roja Technologies","Flexera","FloQast","Fortinet Inc.","Fortra","Fortra's Alert Logic","Freshworks Inc.","FriendliAI","Genesys","Genially","Genymobile Inc.,","Gigamon","Gitpod","Glassbox","Gotham Technology Group","Grafana Labs","Granulate","groundcover","Guardicore","GuardRails","Hackle","Hackmetrix","Harness Inc","HashiCorp","Hasura","HCL Software","Heimdall Data","Helpshift","Hevo Data","Highspot","Hitachi Vantara LLC","Horangi","Horizon3.ai","HP Anyware","HP Teradici","HTCD","HUMAN Security","Hurricane Labs","HYCU, Inc","Hyperglance","Hyperion 3","IBM Automation","IBM Digital Dev","IBM Security","IBM Software","IBM Turbonomic","Igneous","Illumio","Immuta","Imperva","Indeni","Inductive Automation","Infinite Ranges","Infoblox","Infor","Informatica","Infosky","Infracost","Ingram Micro Inc.","IngramMicro Cloud","Insider","Instana","Instant Connect","Invicti Security","Invisory","IO River","IOanyT Innovations, Inc.","iOLAP","IronNet Cybersecurity","IRONSCALES","Isovalent, Inc.","IT Vizion, Inc.","ITApps","ITQM","Ivanti","IVCISA","Jamf","JCO Analytics","JFrog","John Snow Labs","JumpCloud, Inc.","Juniper Networks","JupiterOne","Kaleido","Kaltura","Kandji","Kaspersky","Kasten by Veeam","Katalon Inc.","Keeper Security","Kemp Technologies","Kentik","Keyfactor, Inc.","Kion","KNIME","Kolomolo","Komprise","Kong","Kubecost","KX","Labra","Lacework","Lastwall","Leena AI","Lightbend","Lightlytics","LinearB","Local Measure","LogicMonitor","Logz.io","Looker","Lookout, Inc.","Lucid Software","Lucidity","Lumigo","Luminoso Technologies, Inc.","Lumnion GmbH","Luzmo","Macula","Magnifi","Mantel Group","MarkLogic","Mathematica's Data Innovation Lab","Matillion","Max Technologies","Mend","Mend.io","Mendix","Menlo Security","Merge","MetabaseQ Cloud","Micro Focus","microapps","MicroStrategy, Inc.","Milestone Systems A/S","Mobile Connect","Mode Analytics","Model9 Software Inc.","modelizeIT","Momento","monday.com","MongoDB, Inc","MontyCloud Inc","Moogsoft","MORNEX","Morpheus Data","mParticle","N2W Software","n8n.io","Nasuni","NCS Pte. Ltd.","Necko Technologies","Neo4j","NetActuate, Inc","NetApp, Inc.","NETbuilder","NetCom Learning","Netdata","NETSCOUT SYSTEMS, INC.","Netskope","NetSPI","Nettention","New Relic","NEXTGEN Distribution","Nexthink, Inc.","NGINX, Inc.","NinjaOne","NLP Logix","NOMAD","Noname Security","nOps","Normalyze","North Cloud","Notion","NowSecure","Nubity Inc","Nutanix","NVIDIA","Oak Consulting Pte Ltd","ObserveAny","Obsidian Security, Inc.","Octavebytes","Okera","Omni Analytics","Omnigo Software LLC","OMNINGAGE","One Identity","OneLogin","Opal","Open Text","Opendatasoft","OpenText Cybersecurity","OpenVPN Inc.","Operata","OPSWAT","Orca Security","Orq.ai","Outreach","OutSystems","Own","OwnBackup","PagerDuty","Palo Alto Networks","Panzura","Paradime Labs, Inc.","ParkMyCloud","Partner GO - Professional Services","PayEm","Pegasystems","Pelanor","Penta Security","Pepperdata, Inc.","Perception Point","PerfectScale","Perimeter 81","Pier Cloud","Pillir","Pinecone","Ping Identity","PingCAP","Pipefy","pixitmedia","Platformr.cloud","Plerion","Pluralsight","PNW Cloud Solutions","PointFive","Polarity.IO, Inc.","Portworx, Inc","Posit Software, PBC (formerly RStudio)","Postman","Praxis AI","Preservica","PrimeKey, Inc.","primeNumber Inc.","PrinterLogic","Privacera Inc","Progress Chef","Progress Kemp Technologies","Pronetx","Proofpoint","Propeller","Prosimo","ProsperOps","Protegrity","PubNub","Pulse by BigData Boutique","Pump","PuppyGraph","Pure Storage, Inc.","Pypestream","Qlik","QlikTech, Inc.","Qualys","Quantiful","Quantum","Qubole","QueryPie","Quickwork","Qumulo","QuSecure","Radware","Randoli Inc","Rapid7","ReadMe","Reblaze","Recorded Future","Red Canary","Red Hat","Redapt, Inc.","Redis","RedShield Security","ReliaQuest","Reltio","Relyt Data Cloud","Rescale","Resolve Technology Ltd.","Responsive","Revir Technologies, Inc.","Ribbon Communications","RiverMeadow Software","Riverside.fm","Rook Advisors","Roost","RStudio, PBC","Rubicon","Rubrik, Inc","Sage","Sage Intacct","SAIC","SailPoint","Salesforce","Salesforce.com Italy S.r.l.","Salt Security","SAS","Saviynt","ScaleOps","Scrut Automation","ScyllaDB, Inc","Scytale","SecureAuth","Secureworks","Securiti","SecurityScorecard","Securonix, inc","Sedai Inc.","Seeq Corporation","Semgrep, Inc.","Sendbird, Inc.","Sensedia","SentinelOne","Sentry","Seqera","SequenceShift","Serverless, Inc.","ServiceNow","SFDC Australia Pty. Ltd.","SignTech Paperless Solutions Ltd","Simform","Simloud","Simudyne","SingleStore","SIOS Technology Corp.","Sisense","Skyhawk Security","Skyhigh Security","SmartBear Software","SMX","SnapLogic","Snowflake","Snowflake Data Cloud","Snyk","Software AG","SoftwareOne","SolarWinds","Sonar","Sophos","Soul Machines","Sourcegraph","Spektra Systems","Splunk","Spot by NetApp","Spotify for Backstage (Spotify AB)","Spotify for Backstage (Spotify USA)","Sprinklr","Spryker Systems Australia Pty Ltd.","Squadcast Inc.","StackGuardian","StackRox, Inc.","StackZone","Starburst","Statsig","Stream.Security","StreamNative Cloud","StreamSets","Striim Inc","Stromasys","Styra Inc.","Suger Inc","Sumo Logic Inc.","Superblocks","Superna","Survey Dynamix","Symantec","SynchroNet","Synopsys, Inc.","Syntax Systems USA LP","Sysdig","Tackle.io","Tag.bio","Talend","Tanium Inc","TD SYNNEX Public Sector","TD SYNNEX TS Europe B.V.","Tech 42","Tech Data","Tech Holding","Techlatest.net","tecRacer Consulting GmbH","Teleport","Tenable, Inc.","Termilus","terracloudx","Tessell","Tessian","TestifySec","TetraScience","Thales","The Consortium Cloud","Thinaer","Thorn Technologies LLC","Thoughtworks, Inc.","ThousandEyes","Thundra","TIBCO Software Inc.","Tidal","Tigera Inc.","Tinybird","TIVIT","TLG Learning","TomorrowX","Torii","Torq","Totogi","Tray.io","Treasure Data","Trellix","Trend Micro","Trifacta","TrustDecision","TrustOnCloud","TTEC Digital (Formerly VoiceFoundry)","Turbot","Tyk Technologies Ltd","Udemy Business","UiPath Inc.","Unicon","Uniskai by Profisea Labs","Unleash live","Unraveldata","Upsolver","Uptrader, Inc.","Upwind Security","ValpoSystems","Valtix, Inc.","Varonis","Vcinity, Inc.","Vectara","Vectra AI","Veeam","VEERUM","Veracode","Verint","Veritas Technologies LLC","Versent","Veza","vFunction","VHT","Virtana","Virtasant","Virtuoso","VMware Aria Cost powered by CloudHealth","VMware Tanzu CloudHealth","VMware, Inc.","Volumez","Vorlon, Inc","Vulcan Cyber","WalkMe","Webflow","Webiny","Websoft9","Webvar Inc","Weights & Biases","Weka","Westcon-Comstor","WhaleOps","Whispir","Wickr, Inc","Wiv","Wiz","WOLK","Workato, Inc.","Workspot, Inc.","WRIKE","Xooa","Xosphere","XQ Message","Yext","Yugabyte","Zadara","zeb","Zebrunner","Zendesk","Zenlayer","Zesty","ZOHO Corporation","Zscaler","Zuora"];
+
+const CASE_PATH = `You should create a case to the AWS Marketplace presales team from the opportunity in Salesforce using this case path:
+
+Pre-sales Product Help > "I know the Vendor" > Public Cloud > AWS Web Services
+
+Include the following information in your case:
+
+• SUBJECT: Marketplace – Vendor
+• Does the customer purchase on the AWS Marketplace today? Y / N
+• What Independent Software Vendor (ISV) is the customer looking to purchase?
+• Do you have deal registration with the ISV?
+  – If so, include deal registration details
+  – If not, please detail the reason
+• Is this a net new purchase or renewal?
+• Is Softchoice the incumbent?
+• Ask the customer to confirm the 12-digit AWS account ID (this can be provided later)`;
+
+let state = { phase: 'awaiting_isv', userISV: '', pdfMatch: null };
+
+function norm(s) {
+  return s.toLowerCase().replace(/&/g,'and').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+}
+
+function levenshtein(a, b) {
+  const m=a.length, n=b.length, dp=[];
+  for(let i=0;i<=m;i++){dp[i]=[i];for(let j=1;j<=n;j++)dp[i][j]=i===0?j:0;}
+  for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)
+    dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
+  return dp[m][n];
+}
+
+function findMatch(query) {
+  const q = norm(query);
+  let bestClose=null, bestDist=Infinity;
+  for(const v of PDF_VENDORS) {
+    const vn = norm(v);
+    if(vn === q) return {type:'exact', name:v};
+    if(vn.includes(q) || q.includes(vn)) {
+      const d = levenshtein(q,vn);
+      if(d < bestDist){bestDist=d; bestClose=v;}
+      continue;
+    }
+    const d = levenshtein(q,vn);
+    const thresh = Math.max(3, Math.floor(Math.max(q.length,vn.length)*0.28));
+    if(d <= thresh && d < bestDist){bestDist=d; bestClose=v;}
+  }
+  if(bestClose) return {type:'close', name:bestClose};
+  return {type:'none', name:null};
+}
+
+function notFoundResponse(isvName) {
+  return `Unfortunately ${isvName} was not found on the current list of vendors supporting CPPOs in AWS Marketplace.\n\nIt may be worthwhile to reach out to a contact at ${isvName} to confirm if they would allow Softchoice to transact a channel partner private offer (CPPO). More ISVs are adopting AWS Marketplace every day, so there's still the possibility they will allow it.\n\nIf you would like, an AWS Marketplace presales specialist can help confirm whether CPPO is supported and advise on next steps.\n\nWould you like to know the case path to engage an AWS Marketplace presales resource?`;
+}
+
+function addMsg(role, text) {
+  const chat = document.getElementById('chat');
+  const div = document.createElement('div'); div.className='msg ' + role;
+  const lbl = document.createElement('div'); lbl.className='msg-label'; lbl.textContent=role==='agent'?'Agent':'You';
+  const bub = document.createElement('div'); bub.className='bubble'; bub.textContent=text;
+  div.appendChild(lbl); div.appendChild(bub);
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function agentMsg(text, btns) { addMsg('agent', text); setQuickBtns(btns||[]); }
+
+function setQuickBtns(opts) {
+  const c = document.getElementById('quickBtns'); c.innerHTML='';
+  opts.forEach(function(o) {
+    const b = document.createElement('button'); b.className='quick-btn'; b.textContent=o;
+    b.addEventListener('click', function() { document.getElementById('userInput').value=o; handleSend(); });
+    c.appendChild(b);
+  });
+}
+
+function restartTopic() {
+  state = {phase:'awaiting_isv', userISV:'', pdfMatch:null};
+  agentMsg('What is the name of the ISV you would like to check?', []);
+}
+
+function processISV(isvName) {
+  state.userISV = isvName;
+  const result = findMatch(isvName);
+
+  if(result.type === 'exact') {
+    state.pdfMatch = result.name;
+    agentMsg('Yes ' + result.name + ' is available on AWS Marketplace and has transacted channel partner private offers (CPPOs) before.\n\nThis vendor appears on the current list of vendors supporting CPPOs in AWS Marketplace.\n\nIf you have an opportunity with a client who would like to transact ' + result.name + ' in AWS Marketplace, an AWS Marketplace presales specialist can assist you with next steps.\n\n' + CASE_PATH, ['Check another vendor','Done']);
+    state.phase = 'done_offer_restart'; return;
+  }
+
+  if(result.type === 'close') {
+    state.pdfMatch = result.name;
+    agentMsg("I wasn't able to find an exact match for " + isvName + " on the current list of vendors supporting CPPOs in AWS Marketplace, but I found " + result.name + ", which is close.\n\nDo you wish to know if " + result.name + " is available on AWS Marketplace?", ['Yes','No']);
+    state.phase = 'confirm_close_pdf'; return;
+  }
+
+  agentMsg(notFoundResponse(isvName), ['Yes','No']);
+  state.phase = 'not_found_offer_case';
+}
+
+function handleUserResponse(text) {
+  const t = text.trim().toLowerCase();
+  const isv = state.userISV;
+  const pdf = state.pdfMatch;
+
+  if(state.phase === 'awaiting_isv') { processISV(text); return; }
+
+  if(state.phase === 'confirm_close_pdf') {
+    if(t==='yes'||t.indexOf('yes')===0) {
+      agentMsg('Yes ' + pdf + ' is available on AWS Marketplace and has transacted channel partner private offers (CPPOs) before.\n\nThis vendor appears on the current list of vendors supporting CPPOs in AWS Marketplace.\n\nIf you have an opportunity with a client who would like to transact ' + pdf + ' in AWS Marketplace, an AWS Marketplace presales specialist can assist you with next steps.\n\n' + CASE_PATH, ['Check another vendor','Done']);
+      state.phase = 'done_offer_restart';
+    } else {
+      agentMsg(notFoundResponse(isv), ['Yes','No']);
+      state.phase = 'not_found_offer_case';
+    }
+    return;
+  }
+
+  if(state.phase === 'not_found_offer_case') {
+    if(t==='yes'||t.indexOf('yes')===0) {
+      agentMsg(CASE_PATH, ['Check another vendor','Done']);
+      state.phase = 'done_offer_restart';
+    } else {
+      agentMsg('Would you like to search for another vendor?', ['Yes','No']);
+      state.phase = 'offer_restart';
+    }
+    return;
+  }
+
+  if(state.phase==='offer_restart') {
+    if(t==='yes'||t.indexOf('yes')===0||t.indexOf('another')!==-1) restartTopic();
+    else { agentMsg('Understood. Reach out anytime if you need another CPPO check. Goodbye!', []); state.phase='ended'; }
+    return;
+  }
+
+  if(state.phase==='done_offer_restart') {
+    if(t.indexOf('another')!==-1||t==='yes') restartTopic();
+    else { agentMsg('Understood. Reach out anytime if you need another CPPO check. Goodbye!', []); state.phase='ended'; }
+    return;
+  }
+
+  if(state.phase==='ended') { agentMsg('To start a new search, just type a vendor name.', []); state.phase='awaiting_isv'; }
+}
+
+function handleSend() {
+  const input = document.getElementById('userInput');
+  const text = input.value.trim();
+  if(!text) return;
+  addMsg('user', text); input.value=''; setQuickBtns([]);
+  handleUserResponse(text);
+}
+
+document.getElementById('userInput').addEventListener('keydown', function(e) { if(e.key==='Enter') handleSend(); });
+document.getElementById('sendBtn').addEventListener('click', handleSend);
+
+agentMsg('Hello! I can check whether a software vendor supports Channel Partner Private Offers (CPPOs) on AWS Marketplace.\n\nWhat is the name of the ISV you would like to check?', []);
+</script>
+</body>
+</html>
